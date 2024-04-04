@@ -17,9 +17,14 @@ packet_queue = queue.Queue()
 def capture_packets():
     def handle_packet(packet):
         if IP in packet:
-            ip_src = packet[IP].src
-            ip_dst = packet[IP].dst
-            proto = packet[IP].proto
+            packet_details = {
+            "src": packet.sprintf("%IP.src%"),
+            "dst": packet.sprintf("%IP.dst%"),
+            "protocol": packet.sprintf("%IP.proto%")
+        }
+            ip_src = packet_details['src']
+            ip_dst = packet_details['dst']
+            proto = packet_details['protocol']
             packet_queue.put({'Source': ip_src, 'Destination': ip_dst, 'Protocol': proto})
             #print(f"src: {ip_src} dst: {ip_dst} proto: {proto}")
 
@@ -39,6 +44,12 @@ app.layout = html.Div([
         id='table-update',
         interval=100,  # Update every second
         n_intervals=0
+    ),
+    dcc.Graph(id='live-graph', animate=False),
+    dcc.Interval(
+        id='graph-update',
+        interval=1000,  # Update every second
+        n_intervals=0
     )
     
 ])
@@ -57,6 +68,7 @@ def generate_table(dataframe, max_rows=1000):
 
 
 data = {'Source': [], 'Destination': [], 'Protocol': []}
+graphData = {}
 # Callback to update the graph
 @app.callback(Output('live-table', 'children'),
               [Input('table-update', 'n_intervals')])
@@ -73,6 +85,30 @@ def update_table(n):
     df = pd.DataFrame(data)
     
     return generate_table(df)
+
+@app.callback(Output('live-graph', 'figure'),
+              [Input('graph-update', 'n_intervals')])
+def update_graph(n):
+    
+
+    # Get up to 10 packets from the queue
+    for _ in range(1):
+        if not packet_queue.empty():
+            addr = packet_queue.get()['Destination']
+            graphData[addr] = graphData.get(addr, 0) + 1
+            
+
+    # Create the Plotly figure
+    fig = go.Figure(data=[go.Bar(x=list(graphData.keys()), y=list(graphData.values()))])
+    fig.update_layout(title='Real-Time Network Packet Data',
+                      xaxis=dict(title='IP Address'),
+                      yaxis=dict(title='Number of Visits'),
+                      autosize=True,
+                      height=500,
+                      width=800)
+    return fig
+
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)
