@@ -66,7 +66,7 @@ def generate_table(dataframe, max_rows=1000):
     ])
 
 
-data = {'Source': [], 'Destination': [], 'Protocol': []}
+data = {'Source': [], 'Destination': [], 'Protocol': [], 'HostName': []}
 graphData = {}
 # Callback to update the graph
 @app.callback(Output('live-table', 'children'),
@@ -80,6 +80,13 @@ def update_table(n):
             data['Source'].append(packet['Source'])
             data['Destination'].append(packet['Destination'])
             data['Protocol'].append(packet['Protocol'])
+            try:
+                # Perform a reverse DNS lookup to get the hostname
+                destination_hostname = socket.gethostbyaddr(packet['Destination'])[0]
+            except (socket.herror, socket.gaierror):
+                # If the reverse lookup fails, use the IP address
+                destination_hostname = "Hostname not found"
+            data['HostName'].append(destination_hostname)
 
     df = pd.DataFrame(data)
     
