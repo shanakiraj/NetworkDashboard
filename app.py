@@ -40,7 +40,7 @@ threading.Thread(target=capture_packets, daemon=True).start()
 app = dash.Dash(__name__)
 app.layout = html.Div([
     html.H1("Real-Time Network Packet Data"),
-    html.Div(html.H3("Source      Destination      Protocol")),
+    
     html.Div(id='live-table', style={'height': '300px', 'overflowY': 'auto'}),
     dcc.Interval(
         id='table-update',
@@ -57,7 +57,9 @@ app.layout = html.Div([
 ])
 def generate_table(dataframe, max_rows=1000):
     return html.Table( children =[
-        
+        html.Thead([
+            html.Tr([html.Th('Source'), html.Th('Destination'), html.Th('Protocol'), html.Th('HostName')])
+        ]),
         html.Tbody([
             html.Tr([
                 html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
