@@ -50,13 +50,14 @@ app.layout = html.Div([
     dcc.Graph(id='live-graph', animate=False),
     dcc.Interval(
         id='graph-update',
-        interval=1000,  # Update every second
+        interval=100,  # Update every second
         n_intervals=0
     )
     
 ])
 def generate_table(dataframe, max_rows=1000):
-    return html.Table([
+    return html.Table( children =[
+        
         html.Tbody([
             html.Tr([
                 html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
