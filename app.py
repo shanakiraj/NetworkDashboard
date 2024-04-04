@@ -10,6 +10,7 @@ from scapy.all import sniff, IP
 
 
 
+
 # Queue to store packet data
 packet_queue = queue.Queue()
 
@@ -25,7 +26,7 @@ def capture_packets():
             ip_src = packet_details['src']
             ip_dst = packet_details['dst']
             proto = packet_details['protocol']
-            packet_queue.put({'Source': ip_src, 'Destination': ip_dst, 'Protocol': proto})
+            packet_queue.put({'Source': ip_src, 'Destination': ip_dst, 'Protocol': packet.sprintf("%IP.proto%")})
             #print(f"src: {ip_src} dst: {ip_dst} proto: {proto}")
 
     sniff(prn=handle_packet, store=False)
@@ -39,6 +40,7 @@ threading.Thread(target=capture_packets, daemon=True).start()
 app = dash.Dash(__name__)
 app.layout = html.Div([
     html.H1("Real-Time Network Packet Data"),
+    html.Div(html.H3("Source      Destination      Protocol")),
     html.Div(id='live-table', style={'height': '300px', 'overflowY': 'auto'}),
     dcc.Interval(
         id='table-update',
@@ -55,9 +57,6 @@ app.layout = html.Div([
 ])
 def generate_table(dataframe, max_rows=1000):
     return html.Table([
-        html.Thead(
-            html.Tr([html.Th(col) for col in dataframe.columns])
-        ),
         html.Tbody([
             html.Tr([
                 html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
