@@ -6,19 +6,32 @@ import socket
 import threading
 import queue
 import pandas as pd
-from scapy.all import sniff, IP
-
+from scapy.all import sniff, IP, traceroute
+import time
+from collections import defaultdict
+import geoip2
 
 
 
 # Queue to store packet data
 packet_queue = queue.Queue()
 
+packet_times = defaultdict(list)
+ip_traceroutes = {}
+route_data = {}
+
 # Function to capture network packets
 def capture_packets():
     def handle_packet(packet):
         if IP in packet:
-            packet_details = {
+            
+            #collecting IP information and time 
+            current_time = packet.time
+            src_ip = packet[IP].src
+            dst_ip = packet[IP].dst
+            packet_times[dst_ip].append(current_time) 
+
+            packet_details = {            
             "src": packet.sprintf("%IP.src%"),
             "dst": packet.sprintf("%IP.dst%"),
             "protocol": packet.sprintf("%IP.proto%")
@@ -30,6 +43,48 @@ def capture_packets():
             #print(f"src: {ip_src} dst: {ip_dst} proto: {proto}")
 
     sniff(prn=handle_packet, store=False)
+
+#Runs a traceroute on the destination sent, can read more about this online on exactly what it does but it like sends a packet through the network
+def trace_route(destination):
+    result, _ = traceroute([destination], maxttl=20, verbose=False)
+    ip_traceroutes[destination] = result
+
+#we probably want this to see if a packet is taking a long time to arrive at the final destination, but I didn't exactly know how to do that
+def analyze_timing():
+    df = pd.DataFrame([(dst, times[-1] - times[0]) for dst, times in packet_times.items() if len(times) > 1], columns=['Destination', 'Total Time']) #finding the difference in time between the first packet and the last packet
+    print(df)
+
+# Function to initiate traceroute to suspicious destinations
+def check_routes():
+    suspicious_destinations = [dst for dst, times in packet_times.items() if len(times) > 1]
+    counter = 0 #currently used for testing but this should be removed and should be ran on all suspicious destinations
+    for dst in suspicious_destinations:
+        trace_route(dst) #a slow running method. 
+        if counter > 0:
+            break
+        counter += 1
+
+#check if since the last time, new hops have been added, which could mean that there is someone intercepting the data
+def analyze_route(target, result):
+    current_route = [res[1].src for res in result.res if res[1].src != '<no reply>']
+    historical_route = route_data.get(target, [])
+
+    # Check for new hops not in historical data
+    new_hops = [hop for hop in current_route if hop not in historical_route]
+    if new_hops:
+        print(f"New hops detected for {target}: {new_hops}")
+
+    # Update historical data
+    route_data[target] = current_route
+
+#runs on a 10 second basis
+def analyze_traceroutes():
+    for ip in ip_traceroutes:
+        #route_details[ip].world_trace()
+        result = ip_traceroutes[ip]
+        #print(result.summary())
+        analyze_route(ip, result)
+        #print snd.ttl, rcv.src, isinstance(rcv.payload, TCP)
 
 
 
@@ -53,7 +108,7 @@ app.layout = html.Div([
         interval=100,  # Update every second
         n_intervals=0
     )
-    
+
 ])
 def generate_table(dataframe, max_rows=1000):
     return html.Table( children =[
@@ -99,7 +154,6 @@ def update_table(n):
               [Input('graph-update', 'n_intervals')])
 def update_graph(n):
     
-
     # Get up to 10 packets from the queue
     for _ in range(1):
         if not packet_queue.empty():
@@ -118,6 +172,12 @@ def update_graph(n):
     return fig
 
 
-
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    #app.run_server(debug=True)
+    while True:
+        time.sleep(10) 
+        print("Hello")
+        analyze_timing()
+        check_routes()
+        analyze_traceroutes()
+
