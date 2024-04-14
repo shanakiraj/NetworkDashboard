@@ -72,7 +72,9 @@ def analyze_route(target, result):
     # Check for new hops not in historical data
     new_hops = [hop for hop in current_route if hop not in historical_route]
     if new_hops:
-        print(f"New hops detected for {target}: {new_hops}")
+        alert_message = f"New hops detected for {target}: {new_hops}"
+        print(alert_message)
+        handle_alert(alert_message)  # Handle the alert
 
     # Update historical data
     route_data[target] = current_route
@@ -95,7 +97,7 @@ threading.Thread(target=capture_packets, daemon=True).start()
 app = dash.Dash(__name__)
 app.layout = html.Div([
     html.H1("Real-Time Network Packet Data"),
-    
+    html.Div(id='alerts-area'),
     html.Div(id='live-table', style={'height': '300px', 'overflowY': 'auto'}),
     dcc.Interval(
         id='table-update',
@@ -106,6 +108,11 @@ app.layout = html.Div([
     dcc.Interval(
         id='graph-update',
         interval=100,  # Update every second
+        n_intervals=0
+    ),
+    dcc.Interval(
+        id='alert-update',
+        interval=1000*10,  # Update every second
         n_intervals=0
     )
 
@@ -171,13 +178,22 @@ def update_graph(n):
                       width=800)
     return fig
 
+alerts = []  # This will store all alerts
+
+def handle_alert(alert_message):
+    alerts.append(alert_message)  # Add new alert to the list
+
+@app.callback(Output('alerts-area', 'children'),
+              [Input('alert-update', 'n_intervals')])
+def update_alerts(n):
+    analyze_timing()
+    check_routes()
+    analyze_traceroutes()
+    return [html.Div(alert) for alert in alerts]
+
 
 if __name__ == '__main__':
-    #app.run_server(debug=True)
-    while True:
-        time.sleep(10) 
-        print("Hello")
-        analyze_timing()
-        check_routes()
-        analyze_traceroutes()
+    app.run_server(debug=True)
+    
+        
 
