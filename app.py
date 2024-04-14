@@ -6,7 +6,7 @@ import socket
 import threading
 import queue
 import pandas as pd
-from scapy.all import sniff, IP, traceroute
+from scapy.all import sniff, IP, traceroute, ARP
 import time
 from collections import defaultdict
 import geoip2
@@ -15,6 +15,9 @@ import geoip2
 
 # Queue to store packet data
 packet_queue = queue.Queue()
+
+#A table containing IP address to MAC address. This will be used to see if  
+arp_table = defaultdict(set)
 
 packet_times = defaultdict(list)
 ip_traceroutes = {}
@@ -41,6 +44,14 @@ def capture_packets():
             proto = packet_details['protocol']
             packet_queue.put({'Source': ip_src, 'Destination': ip_dst, 'Protocol': packet.sprintf("%IP.proto%")})
             #print(f"src: {ip_src} dst: {ip_dst} proto: {proto}")
+
+        
+        #ARP Management:
+        if ARP in packet and packet[ARP].op == 2: #Not all packets have this information
+            source_packet_ip = packet[ARP].psrc  # Source protocol address
+            source_mac_address = packet[ARP].hwsrc  # Source hardware address
+            arp_table[source_packet_ip].add(source_mac_address)
+
 
     sniff(prn=handle_packet, store=False)
 
@@ -86,7 +97,10 @@ def analyze_traceroutes():
         analyze_route(ip, result)
         #print snd.ttl, rcv.src, isinstance(rcv.payload, TCP)
 
-
+def analyze_arp_spoofing():
+    for ip in arp_table:
+        if len(arp_table[ip]) > 1:
+            print("Two MAC addresses detected for IP, MiTM May be happening!")
 
 # Start the packet capture in a background thread
 threading.Thread(target=capture_packets, daemon=True).start()
@@ -180,4 +194,6 @@ if __name__ == '__main__':
         analyze_timing()
         check_routes()
         analyze_traceroutes()
+        analyze_arp_spoofing()
+        print(arp_table)
 
