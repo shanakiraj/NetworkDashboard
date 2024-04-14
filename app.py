@@ -8,7 +8,13 @@ import queue
 import pandas as pd
 from scapy.all import sniff, IP
 
+# call the ability to add external scripts
+external_scripts = [
 
+# add the tailwind cdn url hosting the files with the utility classes
+    {'src': 'https://cdn.tailwindcss.com'}
+
+]
 
 
 # Queue to store packet data
@@ -37,7 +43,7 @@ def capture_packets():
 threading.Thread(target=capture_packets, daemon=True).start()
 
 # Initialize Dash app
-app = dash.Dash(__name__)
+app = dash.Dash(__name__,external_scripts=external_scripts)
 app.layout = html.Div([
     html.H1("Real-Time Network Packet Data"),
     
@@ -56,14 +62,14 @@ app.layout = html.Div([
     
 ])
 def generate_table(dataframe, max_rows=1000):
-    return html.Table( children =[
-        html.Thead([
+    return html.Table(className = "w-full text-lg text-left rtl:text-right text-gray-500 mx-10 ", children =[
+        html.Thead(className = "text-xs text-gray-700 uppercase bg-gray-50 sticky top-0", children =[
             html.Tr([html.Th('Source'), html.Th('Destination'), html.Th('Protocol'), html.Th('HostName')])
         ]),
         html.Tbody([
-            html.Tr([
+            html.Tr(className = "odd:bg-white even:bg-gray-50 border-b", children = [
                 html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
-            ]) for i in range(min(len(dataframe), max_rows))
+            ]) for i in range(min(len(dataframe), max_rows)-1,-1,-1)
         ]),
         
     ])
