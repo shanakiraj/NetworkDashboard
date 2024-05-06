@@ -30,16 +30,21 @@ data = pd.concat(dataframes, ignore_index=True)
 '''
 
 
-print(data.head())
 
-data.fillna(data.mean(), inplace=True)
+#data.fillna(data.mean(), inplace=True)
 
 # Encode categorical features
+'''
 label_encoders = {}
 for column in data.select_dtypes(include=['object']).columns:
+    print(column)
     le = LabelEncoder()
     data[column] = le.fit_transform(data[column])
     label_encoders[column] = le
+'''
+data = data[["Dst Port", 'Protocol', "Flow Duration", "Tot Fwd Pkts", "Tot Bwd Pkts", "Label"]]
+print(data.head())
+
 
 scaler = StandardScaler()
 data_scaled = scaler.fit_transform(data.drop(['Label'], axis=1))
@@ -49,19 +54,23 @@ X = data_scaled
 y = data['Label']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+print("Finished splitting into training and test")
 
+'''
+print("Starting Random Forest Training")
 model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_train, y_train)
 
 
 #predicting
+print("Starting Random Forest Prediction")
 y_pred = model.predict(X_test)
 print(confusion_matrix(y_test, y_pred))
 print(classification_report(y_test, y_pred))
 print("Accuracy:", accuracy_score(y_test, y_pred))
+'''
 
-
-
+'''
 #trynna use grid search to find optimal parameters
 param_grid = {
     'n_estimators': [100, 200, 300],
@@ -72,7 +81,7 @@ param_grid = {
 CV_rfc = GridSearchCV(estimator=model, param_grid=param_grid, cv= 5)
 CV_rfc.fit(X_train, y_train)
 print(CV_rfc.best_params_)
-
+'''
 
 
 ########################################################################################
@@ -95,12 +104,16 @@ class AnomolyDetectionNetwork(nn.Module):
 
 
 
-
+print("Setting datasets into tensors")
+print("Y Values", y.values)
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
 X_tensor = torch.tensor(data_scaled, dtype=torch.float32)
-y_tensor = torch.tensor(y.values, dtype=torch.long)  
+y_tensor = torch.tensor(y_encoded, dtype=torch.long)  
 
 X_train, X_test, y_train, y_test = train_test_split(X_tensor, y_tensor, test_size=0.3, random_state=42)
 
+print("Creating datasets and loaders for training/testing")
 train_dataset = TensorDataset(X_train, y_train)
 test_dataset = TensorDataset(X_test, y_test)
 
@@ -113,7 +126,7 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 
-def train_model(num_epochs):
+def train_model(num_epochs = 1):
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
@@ -127,8 +140,10 @@ def train_model(num_epochs):
         print(f'Epoch {epoch+1} Loss: {running_loss/len(train_loader)}')
 
 
+NUM_EPOCHS = 1
 
-train_model(100)
+print("Training model for ", NUM_EPOCHS, "Epochs")
+train_model(num_epochs=NUM_EPOCHS)
 
 def evaluate_model():
     model.eval()
@@ -142,5 +157,6 @@ def evaluate_model():
             correct += (predicted == labels).sum().item()
     print(f'Accuracy: {100 * correct / total}%')
 
+print("Evaluating Model")
 evaluate_model()
 
